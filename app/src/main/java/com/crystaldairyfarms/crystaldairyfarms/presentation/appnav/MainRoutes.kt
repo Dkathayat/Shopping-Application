@@ -1,7 +1,5 @@
 package com.crystaldairyfarms.crystaldairyfarms.presentation.appnav
 
-import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.SearchProduct
-
 object MainRoutes {
     const val SPLASH_SCREEN = "splash_screen"
     const val LOGIN_SCREEN = "login_screen"

@@ -1,7 +1,10 @@
 package com.crystaldairyfarms.crystaldairyfarms.presentation.appnav
 
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -12,29 +15,52 @@ import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.ProductDetai
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.ProfileScreen
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.SearchProductScreen
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.WishListScreen
-
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.SelectedProductViewModel
+import com.crystaldairyfarms.crystaldairyfarms.data.toFirebaseProduct
 
 @Composable
 fun BottomNavGraph(
     navController: NavHostController,
     innerPadding: PaddingValues
 ) {
+    // Activity-scoped so both HomeContent and ProductDetailScreen share the same instance.
+    val activity = LocalActivity.current as ComponentActivity
+    val selectedProductVM: SelectedProductViewModel = viewModel(
+        viewModelStoreOwner = activity
+    )
+
     NavHost(
         navController = navController,
-        startDestination = BottomRoutes.Home, // define one as default
+        startDestination = BottomRoutes.Home,
     ) {
         composable(BottomRoutes.Home) {
             HomeContent(
-                innerPadding,
-                {
-                    navController.navigate(AppRoutes.SearchProduct)
-                }, {
-                    navController.navigate(BottomRoutes.Profile)
-                }, {
-                    navController.navigate(AppRoutes.SearchProduct)
-                }, {
+                paddingValues = innerPadding,
+                onStoreClick = { navController.navigate(AppRoutes.SearchProduct) },
+                onDrawerClicked = { navController.navigate(BottomRoutes.Profile) },
+                cat = { navController.navigate(AppRoutes.SearchProduct) },
+                onItemClick = { navController.navigate(AppRoutes.ProductDetail) },
+                onProductClick = { product ->
+                    selectedProductVM.select(product)
                     navController.navigate(AppRoutes.ProductDetail)
-                })
+                },
+                onCartItemClick = { item ->
+                    selectedProductVM.select(item.toFirebaseProduct())
+                    navController.navigate(AppRoutes.ProductDetail)
+                },
+                onCategoryClick = { homeCategoryName ->
+                    val filter = when (homeCategoryName) {
+                        "Paneer" -> "Dairy"
+                        "Vegi"   -> "Vegetables"
+                        "Fruits" -> "Fruits"
+                        "Breads" -> "Breads"
+                        else     -> homeCategoryName
+                    }
+                    navController.navigate("${AppRoutes.SearchProduct}?category=$filter")
+                }
+            )
         }
 
         composable(BottomRoutes.Profile) {
@@ -42,25 +68,42 @@ fun BottomNavGraph(
         }
 
         composable(BottomRoutes.Categories) {
-            CategoryScreen({
-                navController.navigate(AppRoutes.SearchProduct)
-            })
+            CategoryScreen({ navController.navigate(AppRoutes.SearchProduct) })
         }
+
         composable(BottomRoutes.Wishlist) {
-            WishListScreen()
+            WishListScreen(
+                onProductClick = { product ->
+                    selectedProductVM.select(product)
+                    navController.navigate(AppRoutes.ProductDetail)
+                }
+            )
         }
+
         composable(BottomRoutes.Delivery) {
             DeliveryScreen()
         }
+
         composable(AppRoutes.ProductDetail) {
-            ProductDetailScreen {
-                navController.popBackStack()
-            }
+            ProductDetailScreen(
+                selectedProductViewModel = selectedProductVM,
+                onBack = { navController.popBackStack() }
+            )
         }
-        composable(AppRoutes.SearchProduct) {
-            SearchProductScreen ( onSelect = {
-                navController.navigate(AppRoutes.ProductDetail)
+
+        composable(
+            route = "${AppRoutes.SearchProduct}?category={category}",
+            arguments = listOf(navArgument("category") {
+                type = NavType.StringType
+                defaultValue = "All"
             })
+        ) { backStackEntry ->
+            val category = backStackEntry.arguments?.getString("category") ?: "All"
+            SearchProductScreen(
+                selectedProductViewModel = selectedProductVM,
+                initialCategory = category,
+                onSelect = { navController.navigate(AppRoutes.ProductDetail) }
+            )
         }
     }
 }

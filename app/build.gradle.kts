@@ -51,6 +51,8 @@ android {
 }
 
 dependencies {
+
+    implementation(project(":crystaladmin"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -61,6 +63,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.core.ktx)
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.database)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)

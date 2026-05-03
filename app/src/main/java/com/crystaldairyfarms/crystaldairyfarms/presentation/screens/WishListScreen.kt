@@ -29,9 +29,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.crystaldairyfarms.crystaldairyfarms.data.FirebaseProduct
 import com.crystaldairyfarms.crystaldairyfarms.ui.theme.Primary
 
 data class WishlistItem(
@@ -41,7 +43,7 @@ data class WishlistItem(
     val icon: String
 )
 @Composable
-fun WishListScreen() {
+fun WishListScreen(onProductClick: (FirebaseProduct) -> Unit = {}) {
 
     val items = remember {
         mutableStateListOf(
@@ -79,8 +81,16 @@ fun WishListScreen() {
 
                 WishlistCard(
                     item = item,
-                    onRemove = {
-                        items.remove(item)
+                    onRemove = { items.remove(item) },
+                    onTap = {
+                        onProductClick(
+                            FirebaseProduct(
+                                id = item.id.toString(),
+                                name = item.name,
+                                price = item.price,
+                                emoji = item.icon
+                            )
+                        )
                     }
                 )
             }
@@ -90,10 +100,12 @@ fun WishListScreen() {
 @Composable
 fun WishlistCard(
     item: WishlistItem,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onTap: () -> Unit = {}
 ) {
 
     Card(
+        modifier = Modifier.clickable { onTap() },
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {

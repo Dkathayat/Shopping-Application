@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -382,6 +383,115 @@ fun StoreSearchBar() {
             contentAlignment = Alignment.Center
         ) {
             Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = TextPrimary, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+// ─── Local Product Row (demo data only, no cart integration) ─────────────────
+
+@Composable
+fun ProductRow(products: MutableList<Product>, onItemClick: () -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(products.size) { index ->
+            StoreProductCard(
+                product = products[index],
+                onIncrement = {
+                    products[index] = products[index].copy(quantity = products[index].quantity + 1)
+                },
+                onDecrement = {
+                    if (products[index].quantity > 0)
+                        products[index] = products[index].copy(quantity = products[index].quantity - 1)
+                },
+                onItemClick = onItemClick
+            )
+        }
+    }
+}
+
+@Composable
+fun StoreProductCard(
+    product: Product,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit,
+    onItemClick: () -> Unit
+) {
+    val primary = Color(0xFF2D6A4F)
+    Card(
+        modifier = Modifier
+            .width(150.dp)
+            .height(250.dp)
+            .shadow(4.dp, RoundedCornerShape(16.dp))
+            .clickable { onItemClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardWhite)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(15.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(70.dp)
+                    .clip(CircleShape)
+                    .background(BackgroundCream),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(product.emoji, fontSize = 38.sp)
+            }
+            Text(
+                product.name,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(product.weight, fontSize = 11.sp, color = TextMuted)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(product.price, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text("$", fontSize = 10.sp, color = TextMuted, modifier = Modifier.padding(bottom = 2.dp))
+            }
+            if (product.quantity == 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(primary)
+                        .clickable { onIncrement() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier.size(28.dp).clip(CircleShape)
+                            .background(Color(0xFFE8F5E9))
+                            .clickable { onDecrement() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Remove, contentDescription = null, tint = primary, modifier = Modifier.size(16.dp))
+                    }
+                    Text(product.quantity.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Box(
+                        modifier = Modifier.size(28.dp).clip(CircleShape).background(primary)
+                            .clickable { onIncrement() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
         }
     }
 }

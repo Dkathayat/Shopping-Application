@@ -1,75 +1,74 @@
 package com.crystaldairyfarms.crystaldairyfarms.presentation.vm
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.crystaldairyfarms.crystaldairyfarms.data.CartItem
+import com.crystaldairyfarms.crystaldairyfarms.data.room.CartDao
+import com.crystaldairyfarms.crystaldairyfarms.data.room.toCartItem
+import com.crystaldairyfarms.crystaldairyfarms.data.room.toEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 @HiltViewModel
-class CartViewModel @Inject constructor() : ViewModel() {
+class CartViewModel @Inject constructor(
+    private val cartDao: CartDao
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CartUiState())
     val uiState: StateFlow<CartUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            cartDao.getAllItems().collect { entities ->
+                _uiState.update { it.copy(items = entities.map { e -> e.toCartItem() }) }
+            }
+        }
+    }
+
     fun addItem(item: CartItem) {
-        _uiState.update { state ->
-            val existing = state.items.find { it.id == item.id }
-            if (existing != null) {
-                state.copy(
-                    items = state.items.map {
-                        if (it.id == item.id) it.copy(quantity = it.quantity + 1) else it
-                    }
-                )
-            } else {
-                state.copy(items = state.items + item.copy(quantity = 1))
-            }
+        viewModelScope.launch {
+            val existing = _uiState.value.items.find { it.id == item.id }
+            val newQty = (existing?.quantity ?: 0) + 1
+            cartDao.upsertItem(item.copy(quantity = newQty).toEntity())
         }
     }
 
-    // ── Remove one quantity ───────────────────────────────────────────────────
-    // If quantity reaches 0 → remove item from list entirely
+    fun addItems(item: CartItem, count: Int) {
+        if (count <= 0) return
+        viewModelScope.launch {
+            val existing = _uiState.value.items.find { it.id == item.id }
+            val newQty = (existing?.quantity ?: 0) + count
+            cartDao.upsertItem(item.copy(quantity = newQty).toEntity())
+        }
+    }
+
     fun removeItem(itemId: String) {
-        _uiState.update { state ->
-            val existing = state.items.find { it.id == itemId }
-            if (existing != null && existing.quantity > 1) {
-                state.copy(
-                    items = state.items.map {
-                        if (it.id == itemId) it.copy(quantity = it.quantity - 1) else it
-                    }
-                )
+        viewModelScope.launch {
+            val existing = _uiState.value.items.find { it.id == itemId } ?: return@launch
+            if (existing.quantity > 1) {
+                cartDao.upsertItem(existing.copy(quantity = existing.quantity - 1).toEntity())
             } else {
-                state.copy(items = state.items.filter { it.id != itemId })
+                cartDao.deleteItem(itemId)
             }
         }
     }
 
-    // ── Delete item completely regardless of quantity ──────────────────────────
     fun deleteItem(itemId: String) {
-        _uiState.update { state ->
-            state.copy(items = state.items.filter { it.id != itemId })
-        }
+        viewModelScope.launch { cartDao.deleteItem(itemId) }
     }
 
-    // ── Get quantity of a specific item (for showing +/- on product cards) ────
-    fun getQuantity(itemId: String): Int {
-        return _uiState.value.items.find { it.id == itemId }?.quantity ?: 0
-    }
+    fun getQuantity(itemId: String): Int =
+        _uiState.value.items.find { it.id == itemId }?.quantity ?: 0
 
-    // ── Clear entire cart ─────────────────────────────────────────────────────
     fun clearCart() {
-        _uiState.update { it.copy(items = emptyList()) }
+        viewModelScope.launch { cartDao.clearCart() }
     }
 
-    // ── Toggle cart sheet visibility ──────────────────────────────────────────
-    fun showCart() {
-        _uiState.update { it.copy(isCartVisible = true) }
-    }
-
-    fun hideCart() {
-        _uiState.update { it.copy(isCartVisible = false) }
-    }
+    fun showCart() { _uiState.update { it.copy(isCartVisible = true) } }
+    fun hideCart() { _uiState.update { it.copy(isCartVisible = false) } }
 }

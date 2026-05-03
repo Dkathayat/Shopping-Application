@@ -30,7 +30,6 @@ fun CategoryBottomNav(
     navController: NavHostController
 ) {
     val items = listOf(
-        NavItem(BottomRoutes.Profile,    Icons.Default.Person),
         NavItem(BottomRoutes.Home,       Icons.Default.Home),
         NavItem(BottomRoutes.Categories, Icons.Default.List),
         NavItem(BottomRoutes.Wishlist,   Icons.Default.FavoriteBorder),

@@ -14,9 +14,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -25,19 +28,27 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.ShoppingCartCheckout
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,17 +64,22 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.crystaldairyfarms.crystaldairyfarms.data.Category
 import com.crystaldairyfarms.crystaldairyfarms.data.DeliverySlot
-import com.crystaldairyfarms.crystaldairyfarms.data.Product
+import com.crystaldairyfarms.crystaldairyfarms.data.FirebaseProduct
 import com.crystaldairyfarms.crystaldairyfarms.data.categories
 import com.crystaldairyfarms.crystaldairyfarms.data.deliverySlots
+import com.crystaldairyfarms.crystaldairyfarms.data.toCartItem
 import com.crystaldairyfarms.crystaldairyfarms.presentation.uicomp.CartIconButton
+import com.crystaldairyfarms.crystaldairyfarms.data.CartItem
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.CartUiState
 import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.CartViewModel
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.ProductState
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.ProductViewModel
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.localFallbackProducts
 import com.crystaldairyfarms.crystaldairyfarms.ui.theme.BackgroundCream
 import com.crystaldairyfarms.crystaldairyfarms.ui.theme.CardWhite
 import com.crystaldairyfarms.crystaldairyfarms.ui.theme.DividerColor
@@ -72,6 +88,7 @@ import com.crystaldairyfarms.crystaldairyfarms.ui.theme.TextMuted
 import com.crystaldairyfarms.crystaldairyfarms.ui.theme.TextPrimary
 import com.crystaldairyfarms.crystaldairyfarms.ui.theme.TextSecondary
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeContent(
     paddingValues: PaddingValues,
@@ -79,51 +96,36 @@ fun HomeContent(
     onDrawerClicked: () -> Unit,
     cat: () -> Unit,
     onItemClick: () -> Unit,
-    viewModel: CartViewModel = hiltViewModel()
+    onProductClick: (FirebaseProduct) -> Unit = {},
+    onCartItemClick: (CartItem) -> Unit = {},
+    onCategoryClick: (String) -> Unit = {},
+    cartViewModel: CartViewModel = hiltViewModel(),
+    productViewModel: ProductViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val cartState by cartViewModel.uiState.collectAsState()
+    val productState by productViewModel.state.collectAsState()
 
-    val products = remember {
-        mutableStateListOf(
-            Product("Beetroot", "Local shop", "500 gm.", "17.29", "🫚"),
-            Product("Italian Avocado", "Local shop", "450 gm.", "14.29", "🥑"),
-            Product("Deshi Gajor", "Local shop", "1000 gm.", "27.29", "🥕"),
-            Product("Fresh Apple", "Local shop", "1 kg", "5.99", "🍎"),
-            Product("Banana", "Local shop", "1 dozen", "2.49", "🍌"),
-            Product("Mango (Alphonso)", "Local shop", "1 kg", "9.99", "🥭"),
-            Product("Orange", "Local shop", "1 kg", "4.29", "🍊"),
-            Product("Pineapple", "Local shop", "1 piece", "3.49", "🍍"),
-            Product("Strawberry", "Local shop", "250 gm", "6.29", "🍓"),
-            Product("Watermelon", "Local shop", "1 piece", "7.49", "🍉"),
-            Product("Green Grapes", "Local shop", "500 gm", "4.79", "🍇"),
-            Product("Kiwi", "Local shop", "4 pcs", "5.59", "🥝"),
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
-            // Dairy
-            Product("Indian Paneer", "Amul Dairy", "200 gm", "3.49", "🧀"),
-            Product("Fresh Paneer", "Local Dairy", "250 gm", "4.19", "🧀"),
-            Product("Organic Milk", "Local Dairy", "1 liter", "2.19", "🥛"),
-            Product("Greek Yogurt", "Local Dairy", "400 gm", "3.99", "🥣")
-        )
-    }
-
-    Box(
-        modifier = Modifier.padding(paddingValues)
-    ) {
-
+    Box(modifier = Modifier.padding(paddingValues)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
                     .background(color = Primary),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                HomeTopBar(uiState.totalItems, { onDrawerClicked.invoke() })
-                LocationBar()
+                HomeTopBar(
+                    cartItem = cartState.totalItems,
+                    onDrawerClicked = { onDrawerClicked.invoke() },
+                    onCartClick = { cartViewModel.showCart() }
+                )
             }
             Box(
                 contentAlignment = Alignment.Center,
@@ -139,236 +141,241 @@ fun HomeContent(
                         )
                     )
             ) {
-                CategoryRow(categories) {
-                    onStoreClick()
-                }
+                CategoryRow(categories) { name -> onCategoryClick(name) }
             }
 
-            // ── Delivery Slots ──
             Spacer(Modifier.height(20.dp))
-            DeliverySlotRow(deliverySlots) {
-                onItemClick.invoke()
-            }
-            // ── You Might Need ──
-            Spacer(Modifier.height(20.dp))
-            SectionHeader("You might need", "See more", {
-                cat.invoke()
-            })
+            DeliverySlotRow(deliverySlots) { onItemClick.invoke() }
 
+            Spacer(Modifier.height(20.dp))
+            SectionHeader("You might need", "See more") { cat.invoke() }
             Spacer(Modifier.height(12.dp))
-            ProductRow(products) {
-                onItemClick.invoke()
-            }
+
+            // Products — always shows local dairy items until Firebase responds with real data
+            val products = (productState as? ProductState.Success)?.products
+                ?: localFallbackProducts
+            FirebaseProductRow(
+                products = products,
+                cartState = cartState.items.associate { it.id to it.quantity },
+                onAdd = { cartViewModel.addItem(it.toCartItem()) },
+                onRemove = { cartViewModel.removeItem(it.id) },
+                onItemClick = { product -> onProductClick(product) }
+            )
 
             Spacer(Modifier.height(20.dp))
-
-            // ── Featured ──
             FeaturedHeader(onStoreClick)
-
             Spacer(Modifier.height(80.dp))
         }
     }
+
+    // Cart bottom sheet
+    if (cartState.isCartVisible) {
+        ModalBottomSheet(
+            onDismissRequest = { cartViewModel.hideCart() },
+            sheetState = sheetState,
+            containerColor = Color.White
+        ) {
+            CartBottomSheetContent(
+                cartState = cartState,
+                onRemoveOne = { cartViewModel.removeItem(it) },
+                onAddOne = { item -> cartViewModel.addItem(item) },
+                onDelete = { cartViewModel.deleteItem(it) },
+                onCheckout = { cartViewModel.hideCart() },
+                onItemClick = { item ->
+                    cartViewModel.hideCart()
+                    onCartItemClick(item)
+                }
+            )
+        }
+    }
 }
 
+// ─── Cart Bottom Sheet ────────────────────────────────────────────────────────
+
 @Composable
-fun HomeTopBar(
-    cartItem: Int,
-    onDrawerClicked: () -> Unit
+fun CartBottomSheetContent(
+    cartState: CartUiState,
+    onRemoveOne: (String) -> Unit,
+    onAddOne: (CartItem) -> Unit,
+    onDelete: (String) -> Unit,
+    onCheckout: () -> Unit,
+    onItemClick: (CartItem) -> Unit = {}
 ) {
-    var text by remember { mutableStateOf("") }
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        Icon(
-            imageVector = Icons.Default.Menu,
-            contentDescription = "More Options",
-            tint = Color.White,
-            modifier = Modifier
-                .padding(5.dp)
-                .clickable { onDrawerClicked.invoke() })
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            label = {
-                Text(
-                    "Search for Grocery", color = TextMuted,
-                    fontSize = 14.sp
-                )
-            },
-            // Use CircleShape for pill-shaped ends
-            shape = CircleShape,
-            modifier = Modifier
-                .padding(10.dp),
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                focusedIndicatorColor = Color.White,
-                unfocusedIndicatorColor = Color.Gray,
-                focusedTextColor = Primary,
-                cursorColor = Primary
-            )
-        )
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.weight(1f)
-        ) {
-            CartIconButton(cartItem, { })
-        }
-    }
-}
-
-@Composable
-fun LocationBar() {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 32.dp)
     ) {
         Text(
-            "Current Location",
-            color = TextMuted,
-            fontSize = 12.sp
+            "Your Cart",
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            modifier = Modifier.padding(bottom = 12.dp)
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.LocationOn,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                "New Delhi, IND",
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.width(10.dp))
-        }
-    }
-}
 
-@Composable
-fun CategoryRow(categories: List<Category>, onStoreClick: () -> Unit) {
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 18.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        items(categories) { cat ->
-            CategoryItem(cat) {
-                onStoreClick()
+        if (cartState.isEmpty) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🛒", fontSize = 48.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Your cart is empty", color = TextSecondary)
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 380.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(cartState.items, key = { it.id }) { item ->
+                    CartItemRow(
+                        item = item,
+                        onRemoveOne = { onRemoveOne(item.id) },
+                        onAddOne = { onAddOne(item) },
+                        onDelete = { onDelete(item.id) },
+                        onTap = { onItemClick(item) }
+                    )
+                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Total", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    "$${"%.2f".format(cartState.totalPrice)}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Primary
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = onCheckout,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+            ) {
+                Icon(Icons.Default.ShoppingCartCheckout, contentDescription = null, tint = Color.White)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Proceed to Checkout",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp
+                )
             }
         }
     }
 }
 
 @Composable
-fun CategoryItem(category: Category, onStoreClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        listOf(Color(0xFFFFF3CD), Color(0xFFFFE08A))
-                    )
-                )
-                .border(2.dp, Color(0xFFFFD54F), CircleShape)
-                .clickable { onStoreClick() },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(category.emoji, fontSize = 28.sp)
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            category.name,
-            fontSize = 12.sp,
-            color = Color.White,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(Modifier.height(10.dp))
-    }
-}
-
-// ─── Section Header ───────────────────────────────────────────────────────────
-
-@Composable
-fun SectionHeader(title: String, action: String, onClick: () -> Unit) {
+fun CartItemRow(
+    item: CartItem,
+    onRemoveOne: () -> Unit,
+    onAddOne: () -> Unit,
+    onDelete: () -> Unit,
+    onTap: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .clickable { onTap() }
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            title,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
-        Text(
+        Box(
             modifier = Modifier
-                .clickable { onClick.invoke() },
-            text = action,
-            fontSize = 13.sp,
-            color = Primary,
-            fontWeight = FontWeight.SemiBold
-        )
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(BackgroundCream),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(item.emoji.ifEmpty { "📦" }, fontSize = 24.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.weight, fontSize = 12.sp, color = TextMuted)
+            Text("$${"%.2f".format(item.price)}", fontSize = 13.sp, color = Primary, fontWeight = FontWeight.Medium)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            QuantityButton(Icons.Default.Remove, onClick = onRemoveOne, bg = Color(0xFFE8F5E9))
+            Text(
+                item.quantity.toString(),
+                modifier = Modifier.width(28.dp),
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+            QuantityButton(Icons.Default.Add, onClick = onAddOne, bg = Primary, tint = Color.White)
+        }
+        Spacer(Modifier.width(4.dp))
+        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Color(0xFFD32F2F), modifier = Modifier.size(18.dp))
+        }
     }
 }
 
-// ─── Product Row ──────────────────────────────────────────────────────────────
+// ─── Firebase Product Row ─────────────────────────────────────────────────────
 
 @Composable
-fun ProductRow(products: MutableList<Product>, onStoreClick: () -> Unit) {
-
+fun FirebaseProductRow(
+    products: List<FirebaseProduct>,
+    cartState: Map<String, Int>,
+    onAdd: (FirebaseProduct) -> Unit,
+    onRemove: (FirebaseProduct) -> Unit,
+    onItemClick: (FirebaseProduct) -> Unit
+) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(products.size) { index ->
-            ProductCard(
-                product = products[index],
-                onIncrement = {
-
-                    products[index] = products[index].copy(quantity = products[index].quantity + 1)
-                },
-                onDecrement = {
-                    if (products[index].quantity > 0) products[index] =
-                        products[index].copy(quantity = products[index].quantity - 1)
-                }, {
-                    onStoreClick.invoke()
-                }
+        items(products, key = { it.id }) { product ->
+            FirebaseProductCard(
+                product = product,
+                quantity = cartState[product.id] ?: 0,
+                onIncrement = { onAdd(product) },
+                onDecrement = { onRemove(product) },
+                onItemClick = { onItemClick(product) }
             )
         }
     }
 }
 
 @Composable
-fun ProductCard(
-    product: Product,
+fun FirebaseProductCard(
+    product: FirebaseProduct,
+    quantity: Int,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
-    onItemClick: () -> Unit
+    onItemClick: (FirebaseProduct) -> Unit
 ) {
     Card(
         modifier = Modifier
             .width(150.dp)
             .height(250.dp)
             .shadow(4.dp, RoundedCornerShape(16.dp))
-            .clickable { onItemClick.invoke() },
+            .clickable { onItemClick(product) },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = CardWhite)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(15.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(15.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -379,7 +386,7 @@ fun ProductCard(
                     .background(BackgroundCream),
                 contentAlignment = Alignment.Center
             ) {
-                Text(product.emoji, fontSize = 38.sp)
+                Text(product.emoji.ifEmpty { "📦" }, fontSize = 38.sp)
             }
             Spacer(Modifier.height(8.dp))
             Text(
@@ -391,28 +398,19 @@ fun ProductCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                product.weight,
-                fontSize = 11.sp,
-                color = TextMuted
-            )
+            Text(product.weight, fontSize = 11.sp, color = TextMuted)
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    product.price,
+                    "${"%.2f".format(product.price)}",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
-                Text(
-                    "$",
-                    fontSize = 10.sp,
-                    color = TextMuted,
-                    modifier = Modifier.padding(bottom = 2.dp)
-                )
+                Text("$", fontSize = 10.sp, color = TextMuted, modifier = Modifier.padding(bottom = 2.dp))
             }
             Spacer(Modifier.height(8.dp))
-            if (product.quantity == 0) {
+            if (quantity == 0) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -422,12 +420,7 @@ fun ProductCard(
                         .clickable { onIncrement() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Add",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.White, modifier = Modifier.size(18.dp))
                 }
             } else {
                 Row(
@@ -435,26 +428,131 @@ fun ProductCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    QuantityButton(
-                        Icons.Default.Remove,
-                        onClick = onDecrement,
-                        bg = Color(0xFFE8F5E9)
-                    )
-                    Text(
-                        product.quantity.toString(),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    QuantityButton(
-                        Icons.Default.Add,
-                        onClick = onIncrement,
-                        bg = Primary,
-                        tint = Color.White
-                    )
+                    QuantityButton(Icons.Default.Remove, onClick = onDecrement, bg = Color(0xFFE8F5E9))
+                    Text(quantity.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    QuantityButton(Icons.Default.Add, onClick = onIncrement, bg = Primary, tint = Color.White)
                 }
             }
         }
+    }
+}
+
+// ─── Top Bar ──────────────────────────────────────────────────────────────────
+
+@Composable
+fun HomeTopBar(
+    cartItem: Int,
+    onDrawerClicked: () -> Unit,
+    onCartClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Menu,
+            contentDescription = "More Options",
+            tint = Color.White,
+            modifier = Modifier
+                .size(24.dp)
+                .clickable { onDrawerClicked.invoke() }
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Current Location", color = TextMuted, fontSize = 11.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(2.dp))
+                Text(
+                    "New Delhi, IND",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        CartIconButton(cartItem, onCartClick)
+    }
+}
+
+@Composable
+fun LocationBar() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Current Location", color = TextMuted, fontSize = 12.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("New Delhi, IND", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(10.dp))
+        }
+    }
+}
+
+@Composable
+fun CategoryRow(categories: List<Category>, onCategoryClick: (String) -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 18.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items(categories) { cat ->
+            CategoryItem(cat) { onCategoryClick(cat.name) }
+        }
+    }
+}
+
+@Composable
+fun CategoryItem(category: Category, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(Brush.radialGradient(listOf(Color(0xFFFFF3CD), Color(0xFFFFE08A))))
+                .border(2.dp, Color(0xFFFFD54F), CircleShape)
+                .clickable { onClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(category.emoji, fontSize = 28.sp)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(category.name, fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Medium)
+        Spacer(Modifier.height(10.dp))
+    }
+}
+
+@Composable
+fun SectionHeader(title: String, action: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text(
+            modifier = Modifier.clickable { onClick.invoke() },
+            text = action,
+            fontSize = 13.sp,
+            color = Primary,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -477,26 +575,20 @@ fun QuantityButton(
     }
 }
 
-// ─── Delivery Slot Row ────────────────────────────────────────────────────────
-
 @Composable
 fun DeliverySlotRow(slots: List<DeliverySlot>, onStoreClick: () -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(slots) { index ->
-            DeliverySlotCard(index) { onStoreClick.invoke() }
+        items(slots) { slot ->
+            DeliverySlotCard(slot) { onStoreClick.invoke() }
         }
     }
 }
 
 @Composable
-fun DeliverySlotCard(
-    slot: DeliverySlot,
-    modifier: Modifier = Modifier,
-    onStoreClick: () -> Unit
-) {
+fun DeliverySlotCard(slot: DeliverySlot, modifier: Modifier = Modifier, onStoreClick: () -> Unit) {
     Card(
         modifier = modifier
             .height(120.dp)
@@ -512,24 +604,10 @@ fun DeliverySlotCard(
                     .align(Alignment.CenterStart)
                     .padding(start = 14.dp, top = 12.dp, bottom = 12.dp)
             ) {
-                Text(
-                    slot.label,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    slot.time,
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
+                Text(slot.label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text(slot.time, fontSize = 11.sp, color = TextSecondary)
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    "Free delivery",
-                    fontSize = 10.sp,
-                    color = Primary,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Text("Free delivery", fontSize = 10.sp, color = Primary, fontWeight = FontWeight.SemiBold)
             }
             Text(
                 slot.emoji,
@@ -542,8 +620,6 @@ fun DeliverySlotCard(
     }
 }
 
-// ─── Featured Header ──────────────────────────────────────────────────────────
-
 @Composable
 fun FeaturedHeader(onStoreClick: () -> Unit) {
     Row(
@@ -553,12 +629,7 @@ fun FeaturedHeader(onStoreClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            "Featured Stores",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
+        Text("Featured Stores", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
     }
     FeaturedStore()
 }
@@ -591,19 +662,8 @@ fun FeaturedStore() {
                             .height(150.dp)
                             .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
                     )
-                    Text(
-                        modifier = Modifier.padding(all = 5.dp),
-                        text = "T&T Food Market",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextSecondary
-                    )
-                    Text(
-                        modifier = Modifier.padding(start = 5.dp, bottom = 5.dp),
-                        text = "Deliver in 5 min ⚡ ",
-                        fontWeight = FontWeight.Medium,
-                        color = Color.Gray
-                    )
+                    Text(modifier = Modifier.padding(all = 5.dp), text = "T&T Food Market", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+                    Text(modifier = Modifier.padding(start = 5.dp, bottom = 5.dp), text = "Deliver in 5 min ⚡ ", fontWeight = FontWeight.Medium, color = Color.Gray)
                 }
             }
         }
@@ -626,31 +686,13 @@ fun FeaturedStore() {
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .width(250.dp)
-                            .height(150.dp).clip(RoundedCornerShape(10.dp))
+                            .height(150.dp)
+                            .clip(RoundedCornerShape(10.dp))
                     )
-                    Text(
-                        modifier = Modifier.padding(all = 5.dp),
-                        text = "D&D Food Market",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextSecondary
-                    )
-                    Text(
-                        modifier = Modifier.padding(start = 5.dp, bottom = 5.dp),
-                        text = "Deliver in 15 min ⚡ ",
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
+                    Text(modifier = Modifier.padding(all = 5.dp), text = "D&D Food Market", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
+                    Text(modifier = Modifier.padding(start = 5.dp, bottom = 5.dp), text = "Deliver in 15 min ⚡ ", fontWeight = FontWeight.Medium, fontSize = 12.sp, color = Color.Gray)
                 }
             }
         }
     }
-}
-
-@Preview
-@Composable
-private fun Preview() {
-    HomeContent(PaddingValues(top = 56.dp, bottom = 80.dp) , {}, {}, {}, {}
-    )
 }

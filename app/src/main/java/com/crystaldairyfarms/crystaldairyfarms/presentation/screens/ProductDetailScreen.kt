@@ -22,44 +22,69 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.crystaldairyfarms.crystaldairyfarms.data.toCartItem
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.CartViewModel
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.SelectedProductViewModel
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.localFallbackProducts
 
 // ── Colors ────────────────────────────────────────────────────────────────────
-private val DarkGreen        = Color(0xFF1B3F32)
-private val LightGreen       = Color(0xFFB5E0C8)
-private val AddToCartGreen   = Color(0xFF7DC67E)
-private val PageBg           = Color(0xFFF8F8F8)
-private val CardWhite        = Color(0xFFFFFFFF)
-private val TextMain         = Color(0xFF1A1A1A)
-private val TextSub          = Color(0xFF9CA3AF)
-private val TextGreen        = Color(0xFF2D7A4F)
-private val OrangeBadge      = Color(0xFFF97316)
-private val StarYellow       = Color(0xFFF59E0B)
-private val DeliveryGreen    = Color(0xFF4CAF50)
-private val VariantColors    = listOf(
-    Color(0xFF8B2B2B), // dark red
-    Color(0xFFD97706), // amber
-    Color(0xFF1E40AF)  // blue
-)
+private val DarkGreen      = Color(0xFF1B3F32)
+private val AddToCartGreen = Color(0xFF2D6A4F)
+private val PageBg         = Color(0xFFF8F8F8)
+private val CardBg         = Color(0xFFFFFFFF)
+private val TextMain       = Color(0xFF1A1A1A)
+private val TextSub        = Color(0xFF9CA3AF)
+private val TextGreen      = Color(0xFF2D7A4F)
+private val OrangeBadge    = Color(0xFFF97316)
+private val StarYellow     = Color(0xFFF59E0B)
+private val DeliveryGreen  = Color(0xFF4CAF50)
+private val VariantColors  = listOf(Color(0xFF8B2B2B), Color(0xFFD97706), Color(0xFF1E40AF))
 
-// ── Screen ────────────────────────────────────────────────────────────────────
 @Composable
-fun ProductDetailScreen(onBack: () -> Unit = {}) {
-    var quantity by remember { mutableStateOf(1) }
-    var isFavourite by remember { mutableStateOf(false) }
+fun ProductDetailScreen(
+    selectedProductViewModel: SelectedProductViewModel,
+    onBack: () -> Unit = {},
+    cartViewModel: CartViewModel = hiltViewModel()
+) {
+    val selectedProduct by selectedProductViewModel.product.collectAsState()
+    val cartState by cartViewModel.uiState.collectAsState()
+
+    // Fall back to a default product if none was selected (e.g. direct nav)
+    val product = selectedProduct ?: localFallbackProducts.first()
+
+    var quantity by remember(product.id) { mutableIntStateOf(1) }
+    var isFavourite by remember(product.id) { mutableStateOf(false) }
+
+    val cartCount = cartState.totalItems
 
     Scaffold(
         containerColor = PageBg,
-        topBar = { ProductTopBar(onBack) },
-        bottomBar = { ProductBottomBar(quantity, onDecrement = { if (quantity > 1) quantity-- }, onIncrement = { quantity++ }) }
+        topBar = {
+            ProductTopBar(
+                cartCount = cartCount,
+                onBack = onBack,
+                onCartClick = { cartViewModel.showCart() }
+            )
+        },
+        bottomBar = {
+            ProductBottomBar(
+                quantity = quantity,
+                onDecrement = { if (quantity > 1) quantity-- },
+                onIncrement = { quantity++ },
+                onAddToCart = {
+                    cartViewModel.addItems(product.toCartItem(), quantity)
+                    quantity = 1
+                }
+            )
+        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -67,15 +92,14 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // ── Hero image card ──────────────────────────────────────────
+            // ── Hero ─────────────────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(260.dp)
-                    .background(CardWhite),
+                    .background(CardBg),
                 contentAlignment = Alignment.Center
             ) {
-                // Drag handle
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -85,8 +109,6 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
                         .clip(RoundedCornerShape(2.dp))
                         .background(Color(0xFFE0E0E0))
                 )
-
-                // Product image placeholder (replace with AsyncImage / painterResource)
                 Box(
                     modifier = Modifier
                         .size(220.dp)
@@ -94,16 +116,16 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
                         .background(Color(0xFFFFF5F5)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("🥛", fontSize = 100.sp)
+                    Text(product.emoji.ifEmpty { "📦" }, fontSize = 100.sp)
                 }
             }
 
-            // ── Detail card ───────────────────────────────────────────────
+            // ── Detail Card ───────────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .background(CardWhite)
+                    .background(CardBg)
                     .padding(horizontal = 20.dp, vertical = 20.dp)
             ) {
                 Column {
@@ -115,7 +137,7 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Fresh cow Milk\nIn 50 gm",
+                                text = product.name,
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TextMain,
@@ -123,8 +145,13 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "1000 gm",
+                                text = product.weight,
                                 fontSize = 13.sp,
+                                color = TextSub
+                            )
+                            Text(
+                                text = product.shop,
+                                fontSize = 12.sp,
                                 color = TextSub
                             )
                         }
@@ -140,37 +167,18 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
 
                     Spacer(Modifier.height(14.dp))
 
-                    // Price + delivery badge
+                    // Price + badge
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Price
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text(
-                                text = "23.",
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextMain
-                            )
-                            Text(
-                                text = "46",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextMain,
-                                modifier = Modifier.padding(bottom = 2.dp)
-                            )
-                            Text(
-                                text = "₹",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextMain,
-                                modifier = Modifier.padding(bottom = 2.dp)
-                            )
-                        }
-
-                        // Fast delivery badge
+                        Text(
+                            text = "$${"%.2f".format(product.price)}",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextMain
+                        )
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
@@ -186,7 +194,7 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
-                                text = "Available on fast delivery",
+                                text = "Fast delivery available",
                                 fontSize = 11.sp,
                                 color = DeliveryGreen,
                                 fontWeight = FontWeight.Medium
@@ -196,24 +204,25 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
 
                     Spacer(Modifier.height(14.dp))
 
-                    // Variant dots + rating
+                    // Category + rating
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            VariantColors.forEach { color ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(CircleShape)
-                                        .background(color)
-                                        .border(2.dp, Color.White, CircleShape)
-                                )
-                            }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFE8F5E9))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = product.category,
+                                fontSize = 12.sp,
+                                color = AddToCartGreen,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
-
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -234,17 +243,12 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
                     }
 
                     Spacer(Modifier.height(16.dp))
-
-                    Divider(color = Color(0xFFF0F0F0), thickness = 1.dp)
-
+                    HorizontalDivider(color = Color(0xFFF0F0F0))
                     Spacer(Modifier.height(14.dp))
 
-                    // Description
-                    val descText = "100% satisfaction guarantee. If you experience any of the following issues, missing, poor item, late arrival, unprofessional servic..."
                     Text(
                         text = buildAnnotatedString {
-                            append(descText)
-                            append(" ")
+                            append("100% satisfaction guarantee. Fresh, quality-checked ${product.name} delivered directly from ${product.shop}. If you experience any issues — missing item, late arrival — we'll make it right. ")
                             withStyle(SpanStyle(color = TextGreen, fontWeight = FontWeight.SemiBold)) {
                                 append("Read more")
                             }
@@ -263,7 +267,11 @@ fun ProductDetailScreen(onBack: () -> Unit = {}) {
 
 // ── Top Bar ───────────────────────────────────────────────────────────────────
 @Composable
-fun ProductTopBar(onBack: () -> Unit) {
+fun ProductTopBar(
+    cartCount: Int,
+    onBack: () -> Unit,
+    onCartClick: () -> Unit = {}
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -271,7 +279,6 @@ fun ProductTopBar(onBack: () -> Unit) {
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        // Back button
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -289,7 +296,6 @@ fun ProductTopBar(onBack: () -> Unit) {
             )
         }
 
-        // Title
         Text(
             text = "Product Details",
             color = Color.White,
@@ -298,8 +304,15 @@ fun ProductTopBar(onBack: () -> Unit) {
             modifier = Modifier.align(Alignment.Center)
         )
 
-        // Cart
-        Box(
+        // Live cart badge
+        BadgedBox(
+            badge = {
+                if (cartCount > 0) {
+                    Badge(containerColor = OrangeBadge) {
+                        Text(cartCount.toString(), color = Color.White, fontSize = 9.sp)
+                    }
+                }
+            },
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             Box(
@@ -307,7 +320,7 @@ fun ProductTopBar(onBack: () -> Unit) {
                     .size(36.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.15f))
-                    .clickable { },
+                    .clickable { onCartClick() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -317,25 +330,22 @@ fun ProductTopBar(onBack: () -> Unit) {
                     modifier = Modifier.size(18.dp)
                 )
             }
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(OrangeBadge)
-                    .align(Alignment.TopEnd)
-                    .offset(x = 2.dp, y = (-2).dp)
-            )
         }
     }
 }
 
 // ── Bottom Bar ────────────────────────────────────────────────────────────────
 @Composable
-fun ProductBottomBar(quantity: Int, onDecrement: () -> Unit, onIncrement: () -> Unit) {
+fun ProductBottomBar(
+    quantity: Int,
+    onDecrement: () -> Unit,
+    onIncrement: () -> Unit,
+    onAddToCart: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardWhite)
+            .background(CardBg)
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -378,14 +388,14 @@ fun ProductBottomBar(quantity: Int, onDecrement: () -> Unit, onIncrement: () -> 
             }
         }
 
-        // Add to cart button
+        // Add to cart button — fully wired
         Box(
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp)
                 .clip(RoundedCornerShape(50.dp))
                 .background(AddToCartGreen)
-                .clickable { },
+                .clickable { onAddToCart() },
             contentAlignment = Alignment.Center
         ) {
             Row(
@@ -406,6 +416,8 @@ fun ProductBottomBar(quantity: Int, onDecrement: () -> Unit, onIncrement: () -> 
 
 @Preview(showSystemUi = true)
 @Composable
-private fun Preview(){
-    ProductDetailScreen({ })
+private fun Preview() {
+    val vm = SelectedProductViewModel()
+    vm.select(localFallbackProducts.first())
+    ProductDetailScreen(selectedProductViewModel = vm)
 }
