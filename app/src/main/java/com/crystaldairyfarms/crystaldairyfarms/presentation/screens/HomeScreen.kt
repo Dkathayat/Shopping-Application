@@ -17,9 +17,12 @@ fun HomeScreen() {
     val bottomNavController = rememberNavController()
     val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute in listOf("ProductDetail", "SearchProduct", "Wishlist", "Delivery")
+    val hideBottomBar = currentRoute == "ProductDetail"
+        || currentRoute == "Profile"
+        || currentRoute == "Checkout"
+        || currentRoute?.startsWith("SearchProduct") == true
     Scaffold(
-        bottomBar = { if (!showBottomBar) { CategoryBottomNav(bottomNavController) } },
+        bottomBar = { if (!hideBottomBar) { CategoryBottomNav(bottomNavController) } },
         containerColor = BackgroundCream,
     ) { padding ->
         BottomNavGraph(bottomNavController, innerPadding = padding)

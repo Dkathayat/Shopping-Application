@@ -80,7 +80,7 @@ fun SearchProductScreen(
 
     LaunchedEffect(Unit) {
         delay(100)
-        focusRequester.requestFocus()
+        //focusRequester.requestFocus()
         keyboardController?.show()
     }
 

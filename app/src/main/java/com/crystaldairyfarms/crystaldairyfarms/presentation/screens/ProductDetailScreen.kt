@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.crystaldairyfarms.crystaldairyfarms.data.toCartItem
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.CartUiState
 import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.CartViewModel
 import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.SelectedProductViewModel
 import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.localFallbackProducts
@@ -48,6 +49,7 @@ private val StarYellow     = Color(0xFFF59E0B)
 private val DeliveryGreen  = Color(0xFF4CAF50)
 private val VariantColors  = listOf(Color(0xFF8B2B2B), Color(0xFFD97706), Color(0xFF1E40AF))
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailScreen(
     selectedProductViewModel: SelectedProductViewModel,
@@ -64,6 +66,7 @@ fun ProductDetailScreen(
     var isFavourite by remember(product.id) { mutableStateOf(false) }
 
     val cartCount = cartState.totalItems
+    val cartSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     Scaffold(
         containerColor = PageBg,
@@ -261,6 +264,22 @@ fun ProductDetailScreen(
                     Spacer(Modifier.height(20.dp))
                 }
             }
+        }
+    }
+
+    if (cartState.isCartVisible) {
+        ModalBottomSheet(
+            onDismissRequest = { cartViewModel.hideCart() },
+            sheetState = cartSheetState,
+            containerColor = Color.White
+        ) {
+            CartBottomSheetContent(
+                cartState = cartState,
+                onRemoveOne = { cartViewModel.removeItem(it) },
+                onAddOne = { cartViewModel.addItem(it) },
+                onDelete = { cartViewModel.deleteItem(it) },
+                onCheckout = { cartViewModel.hideCart() }
+            )
         }
     }
 }

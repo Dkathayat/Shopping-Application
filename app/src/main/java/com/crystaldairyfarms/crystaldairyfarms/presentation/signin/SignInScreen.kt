@@ -28,18 +28,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.crystaldairyfarms.crystaladmin.MainActivity
+import com.crystaldairyfarms.crystaladmin.MainActivityAdmin
 import com.crystaldairyfarms.crystaldairyfarms.R
 import com.crystaldairyfarms.crystaldairyfarms.presentation.Space
 import com.crystaldairyfarms.crystaldairyfarms.ui.theme.Primary
-import kotlinx.coroutines.launch
 
 @Composable
 fun SignInScreen(
@@ -61,7 +59,7 @@ fun SignInScreen(
                 .fillMaxWidth()
                 .padding(end = 20.dp)
                 .clickable {
-                    context.startActivity(Intent(context, MainActivity::class.java))
+                    context.startActivity(Intent(context, MainActivityAdmin::class.java))
                 },
             text = "Login Admin",
             textAlign = TextAlign.End,

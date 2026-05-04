@@ -23,7 +23,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import com.crystaldairyfarms.crystaldairyfarms.presentation.currentRoute
 
-data class NavItem(val label: String, val icon: ImageVector)
+data class NavItem(val label: String, val icon: ImageVector, val displayLabel: String = label)
 private val CatNavActive   = Color(0xFF1B3F32)
 @Composable
 fun CategoryBottomNav(
@@ -33,7 +33,7 @@ fun CategoryBottomNav(
         NavItem(BottomRoutes.Home,       Icons.Default.Home),
         NavItem(BottomRoutes.Categories, Icons.Default.List),
         NavItem(BottomRoutes.Wishlist,   Icons.Default.FavoriteBorder),
-        NavItem(BottomRoutes.Delivery,   Icons.Default.LocalShipping),
+        NavItem(BottomRoutes.Delivery,   Icons.Default.LocalShipping, "Orders"),
     )
     val currentRoute = currentRoute(navController)
 
@@ -63,7 +63,7 @@ fun CategoryBottomNav(
                     )
                 },
                 label = {
-                    Text(item.label, fontSize = 10.sp)
+                    Text(item.displayLabel, fontSize = 10.sp)
                 },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = CatNavActive,

@@ -15,6 +15,7 @@ import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.ProductDetai
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.ProfileScreen
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.SearchProductScreen
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.WishListScreen
+import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.CheckoutScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.SelectedProductViewModel
@@ -59,29 +60,67 @@ fun BottomNavGraph(
                         else     -> homeCategoryName
                     }
                     navController.navigate("${AppRoutes.SearchProduct}?category=$filter")
-                }
+                },
+                onDeliverySlotClick = { label ->
+                    val filter = when (label) {
+                        "Bread"     -> "Breads"
+                        "Dairy"     -> "Dairy"
+                        "Vegetable" -> "Vegetables"
+                        else        -> "All"
+                    }
+                    navController.navigate("${AppRoutes.SearchProduct}?category=$filter")
+                },
+                onCheckout = { navController.navigate(AppRoutes.Checkout) }
             )
         }
 
         composable(BottomRoutes.Profile) {
-            ProfileScreen { }
+            ProfileScreen(
+                logOut = {},
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(BottomRoutes.Categories) {
-            CategoryScreen({ navController.navigate(AppRoutes.SearchProduct) })
+            CategoryScreen(onCategoryClick = { cat ->
+                val filter = when (cat.name) {
+                    "Vegetable"     -> "Vegetables"
+                    "Fruits"        -> "Fruits"
+                    "Breads"        -> "Breads"
+                    "Dairy & Sweet" -> "Dairy"
+                    "Snacks"        -> "Snacks"
+                    "Bakery"        -> "Bakery"
+                    "Chicken"       -> "Chicken"
+                    else            -> "All"
+                }
+                navController.navigate("${AppRoutes.SearchProduct}?category=$filter")
+            })
         }
 
         composable(BottomRoutes.Wishlist) {
             WishListScreen(
+                bottomPadding = innerPadding.calculateBottomPadding(),
                 onProductClick = { product ->
                     selectedProductVM.select(product)
                     navController.navigate(AppRoutes.ProductDetail)
-                }
+                },
+                onCheckout = { navController.navigate(AppRoutes.Checkout) }
             )
         }
 
         composable(BottomRoutes.Delivery) {
-            DeliveryScreen()
+            DeliveryScreen(bottomPadding = innerPadding.calculateBottomPadding())
+        }
+
+        composable(AppRoutes.Checkout) {
+            CheckoutScreen(
+                onBack = { navController.popBackStack() },
+                onOrderSuccess = {
+                    navController.navigate(BottomRoutes.Delivery) {
+                        popUpTo(AppRoutes.Checkout) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable(AppRoutes.ProductDetail) {

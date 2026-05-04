@@ -17,4 +17,5 @@ object BottomRoutes {
 object AppRoutes {
     const val ProductDetail = "ProductDetail"
     const val SearchProduct = "SearchProduct"
+    const val Checkout = "Checkout"
 }

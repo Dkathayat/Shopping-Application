@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -20,17 +19,14 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,15 +35,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.crystaldairyfarms.crystaldairyfarms.presentation.uicomp.CartIconButton
+import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.CartViewModel
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 private val CatDarkGreen   = Color(0xFF1B3F32)
 private val CatPageBg      = Color(0xFFF8F8F8)
 private val CatCardWhite   = Color(0xFFFFFFFF)
 private val CatOrangeBg    = Color(0xFFD95F2B)
-private val CatOrangeLight = Color(0xFFFFF3EE)
-private val CatOrangeText  = Color(0xFFD95F2B)
 private val CatTextMain    = Color(0xFF1A1A1A)
 private val CatTextSub     = Color(0xFF9CA3AF)
 
@@ -61,26 +57,33 @@ data class GroceryCategory(
 )
 
 private val categoryList = listOf(
-    GroceryCategory("Meets",       "Frozen Meal",   "🥩", Color(0xFFFFF5F5)),
-    GroceryCategory("Vegetable",   "Markets",       "🥦", Color(0xFFF0FFF4)),
-    GroceryCategory("Fruits",      "Comical free",  "🍊", Color(0xFFFFF9F0)),
-    GroceryCategory("Breads",      "Burnt",         "🍞", Color(0xFFFFF8F0)),
-    GroceryCategory("Snacks",      "Evening",       "🍕", Color(0xFFF5FFF5)),
-    GroceryCategory("Bakery",      "Meal and Flour","🎂", Color(0xFFFFFBF0)),
-    GroceryCategory("Dairy & Sweet","In store",     "🧁", Color(0xFFFFF0F5)),
-    GroceryCategory("Chicken",     "Frozen Meal",   "🍗", Color(0xFFFFF5F0)),
+    GroceryCategory("Meets",         "Frozen Meal",    "🥩", Color(0xFFFFF5F5)),
+    GroceryCategory("Vegetable",     "Markets",        "🥦", Color(0xFFF0FFF4)),
+    GroceryCategory("Fruits",        "Comical free",   "🍊", Color(0xFFFFF9F0)),
+    GroceryCategory("Breads",        "Burnt",          "🍞", Color(0xFFFFF8F0)),
+    GroceryCategory("Snacks",        "Evening",        "🍕", Color(0xFFF5FFF5)),
+    GroceryCategory("Bakery",        "Meal and Flour", "🎂", Color(0xFFFFFBF0)),
+    GroceryCategory("Dairy & Sweet", "In store",       "🧁", Color(0xFFFFF0F5)),
+    GroceryCategory("Chicken",       "Frozen Meal",    "🍗", Color(0xFFFFF5F0)),
 )
 
 // ── Screen ────────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategoryScreen(onCategoryClick: (GroceryCategory) -> Unit = {}) {
-    var selectedTab by remember { mutableStateOf(2) } // categories tab active
+fun CategoryScreen(
+    onCategoryClick: (GroceryCategory) -> Unit = {},
+    cartViewModel: CartViewModel = hiltViewModel()
+) {
+    val cartState by cartViewModel.uiState.collectAsState()
+    val cartSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     Scaffold(
         containerColor = CatPageBg,
-        topBar = { CategoryTopBar() },
-        bottomBar = {
-          //  CategoryBottomNav(selectedTab) { selectedTab = it }
+        topBar = {
+            CategoryTopBar(
+                cartCount = cartState.totalItems,
+                onCartClick = { cartViewModel.showCart() }
+            )
         }
     ) { padding ->
         Column(
@@ -88,12 +91,8 @@ fun CategoryScreen(onCategoryClick: (GroceryCategory) -> Unit = {}) {
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // ── Promo banner ──────────────────────────────────────────────
             PromoBannerCard()
-
             Spacer(Modifier.height(16.dp))
-
-            // ── Section title ─────────────────────────────────────────────
             Text(
                 text = "All categories",
                 fontSize = 18.sp,
@@ -101,10 +100,7 @@ fun CategoryScreen(onCategoryClick: (GroceryCategory) -> Unit = {}) {
                 color = CatTextMain,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
-
             Spacer(Modifier.height(12.dp))
-
-            // ── Grid ──────────────────────────────────────────────────────
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
@@ -118,54 +114,46 @@ fun CategoryScreen(onCategoryClick: (GroceryCategory) -> Unit = {}) {
             }
         }
     }
+
+    if (cartState.isCartVisible) {
+        ModalBottomSheet(
+            onDismissRequest = { cartViewModel.hideCart() },
+            sheetState = cartSheetState,
+            containerColor = Color.White
+        ) {
+            CartBottomSheetContent(
+                cartState = cartState,
+                onRemoveOne = { cartViewModel.removeItem(it) },
+                onAddOne = { item -> cartViewModel.addItem(item) },
+                onDelete = { cartViewModel.deleteItem(it) },
+                onCheckout = { cartViewModel.hideCart() }
+            )
+        }
+    }
 }
 
 // ── Top Bar ───────────────────────────────────────────────────────────────────
 @Composable
-fun CategoryTopBar() {
-    Column(
+fun CategoryTopBar(
+    cartCount: Int = 0,
+    onCartClick: () -> Unit = {}
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(CatDarkGreen)
             .statusBarsPadding()
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Search bar
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        tint = Color(0xFF9CA3AF),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "Search for \"Grocery\"",
-                        color = Color(0xFF9CA3AF),
-                        fontSize = 13.sp
-                    )
-                }
-            }
-
-            // Cart button
-            CartIconButton(0, {})
-        }
+        Text(
+            text = "Categories",
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
+        CartIconButton(cartCount, onCartClick)
     }
 }
 
@@ -226,7 +214,6 @@ fun CategoryCard(category: GroceryCategory, onClick: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Text info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = category.name,
@@ -241,8 +228,6 @@ fun CategoryCard(category: GroceryCategory, onClick: () -> Unit) {
                     color = CatTextSub
                 )
             }
-
-            // Emoji in colored circle
             Box(
                 modifier = Modifier
                     .size(52.dp)
@@ -259,6 +244,5 @@ fun CategoryCard(category: GroceryCategory, onClick: () -> Unit) {
 @Preview
 @Composable
 private fun Preview() {
-    CategoryScreen {  }
+    CategoryScreen()
 }
-

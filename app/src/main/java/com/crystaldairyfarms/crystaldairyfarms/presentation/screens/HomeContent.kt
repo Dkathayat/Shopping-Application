@@ -46,12 +46,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import android.app.Activity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,6 +103,8 @@ fun HomeContent(
     onProductClick: (FirebaseProduct) -> Unit = {},
     onCartItemClick: (CartItem) -> Unit = {},
     onCategoryClick: (String) -> Unit = {},
+    onDeliverySlotClick: (String) -> Unit = {},
+    onCheckout: () -> Unit = {},
     cartViewModel: CartViewModel = hiltViewModel(),
     productViewModel: ProductViewModel = hiltViewModel()
 ) {
@@ -107,7 +113,21 @@ fun HomeContent(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
-    Box(modifier = Modifier.padding(paddingValues)) {
+    // Set white status bar icons so they're visible on the dark Primary background.
+    // Restored when leaving this screen.
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        DisposableEffect(Unit) {
+            val window = (view.context as Activity).window
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = false
+            onDispose { controller.isAppearanceLightStatusBars = true }
+        }
+    }
+
+    // Only apply bottom padding — top is handled by HomeTopBar's statusBarsPadding()
+    // so the Primary background visually fills behind the status bar.
+    Box(modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding())) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -145,7 +165,7 @@ fun HomeContent(
             }
 
             Spacer(Modifier.height(20.dp))
-            DeliverySlotRow(deliverySlots) { onItemClick.invoke() }
+            DeliverySlotRow(deliverySlots) { label -> onDeliverySlotClick(label) }
 
             Spacer(Modifier.height(20.dp))
             SectionHeader("You might need", "See more") { cat.invoke() }
@@ -180,7 +200,7 @@ fun HomeContent(
                 onRemoveOne = { cartViewModel.removeItem(it) },
                 onAddOne = { item -> cartViewModel.addItem(item) },
                 onDelete = { cartViewModel.deleteItem(it) },
-                onCheckout = { cartViewModel.hideCart() },
+                onCheckout = { cartViewModel.hideCart(); onCheckout() },
                 onItemClick = { item ->
                     cartViewModel.hideCart()
                     onCartItemClick(item)
@@ -396,7 +416,9 @@ fun FirebaseProductCard(
                 color = TextPrimary,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 17.sp,
+                modifier = Modifier.fillMaxWidth().height(36.dp)
             )
             Text(product.weight, fontSize = 11.sp, color = TextMuted)
             Spacer(Modifier.height(6.dp))
@@ -576,24 +598,24 @@ fun QuantityButton(
 }
 
 @Composable
-fun DeliverySlotRow(slots: List<DeliverySlot>, onStoreClick: () -> Unit) {
+fun DeliverySlotRow(slots: List<DeliverySlot>, onSlotClick: (String) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(slots) { slot ->
-            DeliverySlotCard(slot) { onStoreClick.invoke() }
+            DeliverySlotCard(slot) { onSlotClick(slot.label) }
         }
     }
 }
 
 @Composable
-fun DeliverySlotCard(slot: DeliverySlot, modifier: Modifier = Modifier, onStoreClick: () -> Unit) {
+fun DeliverySlotCard(slot: DeliverySlot, modifier: Modifier = Modifier, onSlotClick: () -> Unit) {
     Card(
         modifier = modifier
             .height(120.dp)
             .width(240.dp)
-            .clickable { onStoreClick.invoke() },
+            .clickable { onSlotClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = slot.color),
         border = BorderStroke(1.dp, DividerColor)
