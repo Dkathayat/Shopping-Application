@@ -13,6 +13,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Tune
@@ -21,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -68,7 +71,9 @@ fun SearchProductScreen(
     initialCategory: String = "All",
     cartViewModel: CartViewModel = hiltViewModel(),
     productViewModel: ProductViewModel = hiltViewModel(),
-    onSelect: () -> Unit = {}
+    onSelect: () -> Unit = {},
+    onCheckout: () -> Unit = {},
+    onBack: () -> Unit = {}
 ) {
     var query by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(initialCategory) }
@@ -113,7 +118,8 @@ fun SearchProductScreen(
                 keyboardController = keyboardController,
                 cartCount = cartCount,
                 onFilterClick = { showFilterSheet = true },
-                onCartClick = { cartViewModel.showCart() }
+                onCartClick = { cartViewModel.showCart() },
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -138,7 +144,7 @@ fun SearchProductScreen(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -180,7 +186,7 @@ fun SearchProductScreen(
                 onRemoveOne = { cartViewModel.removeItem(it) },
                 onAddOne = { item -> cartViewModel.addItem(item) },
                 onDelete = { cartViewModel.deleteItem(it) },
-                onCheckout = { cartViewModel.hideCart() },
+                onCheckout = { cartViewModel.hideCart(); onCheckout() },
                 onItemClick = { item ->
                     cartViewModel.hideCart()
                     selectedProductViewModel.select(item.toFirebaseProduct())
@@ -270,7 +276,8 @@ fun SearchTopBar(
     keyboardController: SoftwareKeyboardController?,
     cartCount: Int,
     onFilterClick: () -> Unit,
-    onCartClick: () -> Unit
+    onCartClick: () -> Unit,
+    onBack: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -281,6 +288,23 @@ fun SearchTopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // Back button
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White.copy(alpha = 0.15f))
+                .clickable { onBack() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = "Back",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -380,102 +404,102 @@ fun SearchProductCard(
     onRemove: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onSelect() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(16.dp))
+            .clickable { onSelect() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = SCardBg),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(90.dp)
-                    .background(Color(0xFFF9F9F9)),
+                    .size(70.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF5F0E8)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(product.emoji.ifEmpty { "📦" }, fontSize = 48.sp)
+                Text(product.emoji.ifEmpty { "📦" }, fontSize = 36.sp)
             }
-
-            Column(
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = product.name,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = STextPrimary,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 17.sp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalAlignment = Alignment.Start
-            ) {
+                    .height(36.dp)
+            )
+            Text(
+                text = product.weight,
+                fontSize = 11.sp,
+                color = STextMuted,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = product.name,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = STextPrimary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 15.sp,
-                    modifier = Modifier.fillMaxWidth().height(32.dp)
+                    text = "${"%.2f".format(product.price)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = STextPrimary
                 )
-                Text(text = product.shop, fontSize = 10.sp, color = STextMuted)
-                Text(text = product.weight, fontSize = 10.sp, color = STextMuted)
-                Spacer(Modifier.height(4.dp))
-
-                val priceStr = "%.2f".format(product.price)
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = priceStr.substringBefore("."),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = STextPrimary
-                    )
-                    Text(
-                        text = ".${priceStr.substringAfter(".")}$",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = STextPrimary,
-                        modifier = Modifier.padding(bottom = 1.dp)
-                    )
-                }
+                Text(
+                    text = "$",
+                    fontSize = 10.sp,
+                    color = STextMuted,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
             }
-
+            Spacer(Modifier.height(8.dp))
             if (quantity == 0) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(36.dp)
-                        .background(SGreenBtnBg)
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SGreenBtn)
                         .clickable { onAdd() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = "Add",
-                        tint = SGreenBtn,
-                        modifier = Modifier.size(20.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             } else {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(36.dp)
-                        .background(SGreenBtnBg),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(28.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
+                            .background(Color(0xFFE8F5E9))
                             .clickable { onRemove() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "−",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = STextPrimary,
-                            textAlign = TextAlign.Center
+                        Icon(
+                            imageVector = Icons.Default.Remove,
+                            contentDescription = "Remove",
+                            tint = SGreenBtn,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                     Text(
@@ -486,13 +510,18 @@ fun SearchProductCard(
                     )
                     Box(
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(28.dp)
                             .clip(CircleShape)
                             .background(SGreenBtn)
                             .clickable { onAdd() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.White, modifier = Modifier.size(14.dp))
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }

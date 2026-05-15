@@ -12,21 +12,10 @@ import kotlinx.coroutines.flow.update
 @HiltViewModel
 class AddressViewModel @Inject constructor() : ViewModel() {
 
-    private val _addresses = MutableStateFlow(
-        listOf(
-            Address(
-                id = "1",
-                houseNo = "Hno 123",
-                area = "Dwarka Mor",
-                city = "New Delhi",
-                pincode = "110059",
-                isDefault = true
-            )
-        )
-    )
+    private val _addresses = MutableStateFlow<List<Address>>(emptyList())
     val addresses: StateFlow<List<Address>> = _addresses.asStateFlow()
 
-    fun addAddress(houseNo: String, area: String, city: String, pincode: String) {
+    fun addAddress(houseNo: String, area: String, city: String, pincode: String, phone: String = "") {
         if (_addresses.value.size >= 3) return
         val isFirst = _addresses.value.isEmpty()
         _addresses.update {
@@ -36,6 +25,7 @@ class AddressViewModel @Inject constructor() : ViewModel() {
                 area = area.trim(),
                 city = city.trim(),
                 pincode = pincode.trim(),
+                phone = phone.trim(),
                 isDefault = isFirst
             )
         }

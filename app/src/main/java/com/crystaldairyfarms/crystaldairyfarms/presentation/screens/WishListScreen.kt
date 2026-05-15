@@ -1,6 +1,7 @@
 package com.crystaldairyfarms.crystaldairyfarms.presentation.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,27 +12,31 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,15 +47,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.crystaldairyfarms.crystaldairyfarms.data.CartItem
 import com.crystaldairyfarms.crystaldairyfarms.data.FirebaseProduct
+import com.crystaldairyfarms.crystaldairyfarms.presentation.uicomp.CartIconButton
 import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.CartViewModel
 import com.crystaldairyfarms.crystaldairyfarms.ui.theme.Primary
+
+private val WishDarkGreen = Color(0xFF1B3F32)
 
 data class WishlistItem(
     val id: Int,
@@ -59,15 +67,17 @@ data class WishlistItem(
     val icon: String
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WishListScreen(
     onProductClick: (FirebaseProduct) -> Unit = {},
     onCheckout: () -> Unit = {},
+    onBack: () -> Unit = {},
     bottomPadding: Dp = 0.dp,
     cartViewModel: CartViewModel = hiltViewModel()
 ) {
-
     val cartState by cartViewModel.uiState.collectAsState()
+    val cartSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     val items = remember {
         mutableStateListOf(
@@ -81,11 +91,38 @@ fun WishListScreen(
     Scaffold(
         modifier = Modifier.padding(bottom = bottomPadding),
         containerColor = Color.White,
-        bottomBar = {
-            CheckoutBar(
-                total = if (cartState.isEmpty) items.sumOf { it.price } else cartState.totalPrice,
-                onCheckout = onCheckout
-            )
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(WishDarkGreen)
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f))
+                        .clickable { onBack() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+                Spacer(modifier = Modifier.size(12.dp))
+                Text(
+                    text = "Wishlist",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                CartIconButton(
+                    cartCount = cartState.totalItems,
+                    cartItem = { cartViewModel.showCart() }
+                )
+            }
         }
     ) { padding ->
 
@@ -96,19 +133,6 @@ fun WishListScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
-            // ── Cart summary (shown only when cart has items) ──────────────────
-            if (cartState.items.isNotEmpty()) {
-                item {
-                    CartSummaryCard(
-                        cartItems = cartState.items,
-                        onAddOne = { cartViewModel.addItem(it) },
-                        onRemoveOne = { cartViewModel.removeItem(it.id) },
-                        onDelete = { cartViewModel.deleteItem(it.id) }
-                    )
-                }
-            }
-
             item {
                 Text(
                     text = "My Wishlist",
@@ -119,7 +143,6 @@ fun WishListScreen(
             }
 
             items(items, key = { it.id }) { item ->
-
                 WishlistCard(
                     item = item,
                     onRemove = { items.remove(item) },
@@ -149,6 +172,22 @@ fun WishListScreen(
             }
         }
     }
+
+    if (cartState.isCartVisible) {
+        ModalBottomSheet(
+            onDismissRequest = { cartViewModel.hideCart() },
+            sheetState = cartSheetState,
+            containerColor = Color.White
+        ) {
+            CartBottomSheetContent(
+                cartState = cartState,
+                onRemoveOne = { cartViewModel.removeItem(it) },
+                onAddOne = { item -> cartViewModel.addItem(item) },
+                onDelete = { cartViewModel.deleteItem(it) },
+                onCheckout = { cartViewModel.hideCart(); onCheckout() }
+            )
+        }
+    }
 }
 
 @Composable
@@ -158,43 +197,22 @@ fun WishlistCard(
     onTap: () -> Unit = {},
     onAddToCart: () -> Unit = {}
 ) {
-
     Card(
-        modifier = Modifier
-            .clickable { onTap() },
+        modifier = Modifier.clickable { onTap() },
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            Text(
-                text = item.icon,
-                fontSize = 32.sp
-            )
-
+            Text(text = item.icon, fontSize = 32.sp)
             Spacer(modifier = Modifier.width(16.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-
-                Text(
-                    text = item.name,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp
-                )
-
-                Text(
-                    text = "$${item.price}",
-                    color = Color.Gray
-                )
-
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = item.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(text = "$${item.price}", color = Color.Gray)
                 TextButton(
                     onClick = onAddToCart,
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
@@ -207,12 +225,8 @@ fun WishlistCard(
                     )
                 }
             }
-
             IconButton(onClick = onRemove) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Remove"
-                )
+                Icon(imageVector = Icons.Default.Delete, contentDescription = "Remove")
             }
         }
     }
@@ -223,11 +237,7 @@ fun CheckoutBar(
     total: Double,
     onCheckout: () -> Unit = {}
 ) {
-
-    Surface(
-        shadowElevation = 8.dp
-    ) {
-
+    Surface(shadowElevation = 8.dp) {
         Row(
             modifier = Modifier
                 .background(color = Color.White)
@@ -236,7 +246,6 @@ fun CheckoutBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Column {
                 Text("Total", fontSize = 14.sp, color = Color.Gray)
                 Text(
@@ -245,7 +254,6 @@ fun CheckoutBar(
                     fontWeight = FontWeight.Bold
                 )
             }
-
             Button(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Primary,
@@ -308,18 +316,13 @@ fun CartSummaryCard(
                     Text(item.emoji, fontSize = 24.sp)
                     Spacer(Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = item.name,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
+                        Text(text = item.name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                         Text(
                             text = "$${"%.2f".format(item.price)} each",
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
                     }
-                    // Quantity controls
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)

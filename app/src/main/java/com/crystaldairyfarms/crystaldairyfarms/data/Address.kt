@@ -6,6 +6,7 @@ data class Address(
     val area: String,
     val city: String,
     val pincode: String,
+    val phone: String = "",
     val isDefault: Boolean = false
 ) {
     val displayText: String get() = "$houseNo, $area, $city - $pincode"

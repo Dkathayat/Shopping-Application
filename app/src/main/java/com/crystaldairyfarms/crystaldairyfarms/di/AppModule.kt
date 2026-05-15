@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.crystaldairyfarms.crystaldairyfarms.data.room.CartDao
 import com.crystaldairyfarms.crystaldairyfarms.data.room.CartDatabase
+import com.google.firebase.auth.FirebaseAuth
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,4 +24,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideCartDao(database: CartDatabase): CartDao = database.cartDao()
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
 }

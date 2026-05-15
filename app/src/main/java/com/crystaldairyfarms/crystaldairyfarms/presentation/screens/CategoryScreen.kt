@@ -19,7 +19,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -72,6 +75,8 @@ private val categoryList = listOf(
 @Composable
 fun CategoryScreen(
     onCategoryClick: (GroceryCategory) -> Unit = {},
+    onCheckout: () -> Unit = {},
+    onBack: () -> Unit = {},
     cartViewModel: CartViewModel = hiltViewModel()
 ) {
     val cartState by cartViewModel.uiState.collectAsState()
@@ -82,7 +87,8 @@ fun CategoryScreen(
         topBar = {
             CategoryTopBar(
                 cartCount = cartState.totalItems,
-                onCartClick = { cartViewModel.showCart() }
+                onCartClick = { cartViewModel.showCart() },
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -126,7 +132,7 @@ fun CategoryScreen(
                 onRemoveOne = { cartViewModel.removeItem(it) },
                 onAddOne = { item -> cartViewModel.addItem(item) },
                 onDelete = { cartViewModel.deleteItem(it) },
-                onCheckout = { cartViewModel.hideCart() }
+                onCheckout = { cartViewModel.hideCart(); onCheckout() }
             )
         }
     }
@@ -136,7 +142,8 @@ fun CategoryScreen(
 @Composable
 fun CategoryTopBar(
     cartCount: Int = 0,
-    onCartClick: () -> Unit = {}
+    onCartClick: () -> Unit = {},
+    onBack: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -146,6 +153,17 @@ fun CategoryTopBar(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.15f))
+                .clickable { onBack() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(18.dp))
+        }
+        Spacer(modifier = Modifier.size(12.dp))
         Text(
             text = "Categories",
             color = Color.White,

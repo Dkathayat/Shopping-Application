@@ -36,6 +36,8 @@ runtimeSaveable = "1.9.3"
 foundationLayout = "1.9.3"
 ycharts = "2.1.0"
 playServicesAdsApi = "24.7.0"
+playServicesLocation = "21.3.0"
+coroutinesPlayServices = "1.10.2"
 coreKtxVersion = "1.18.0"
 googleGmsGoogleServicesVersion = "4.4.4"
 
@@ -90,6 +92,8 @@ androidx-compose-foundation-layout = { group = "androidx.compose.foundation", na
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 ycharts = { module = "co.yml:ycharts", version.ref = "ycharts" }
 play-services-ads-api = { group = "com.google.android.gms", name = "play-services-ads-api", version.ref = "playServicesAdsApi" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutinesPlayServices" }
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtxVersion" }
 
 [plugins]

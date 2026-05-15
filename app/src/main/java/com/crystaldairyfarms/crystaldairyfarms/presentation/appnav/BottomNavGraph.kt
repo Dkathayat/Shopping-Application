@@ -6,31 +6,29 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.crystaldairyfarms.crystaldairyfarms.data.toFirebaseProduct
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.CategoryScreen
+import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.CheckoutScreen
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.DeliveryScreen
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.HomeContent
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.ProductDetailScreen
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.ProfileScreen
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.SearchProductScreen
 import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.WishListScreen
-import com.crystaldairyfarms.crystaldairyfarms.presentation.screens.CheckoutScreen
-import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import com.crystaldairyfarms.crystaldairyfarms.presentation.vm.SelectedProductViewModel
-import com.crystaldairyfarms.crystaldairyfarms.data.toFirebaseProduct
 
 @Composable
 fun BottomNavGraph(
     navController: NavHostController,
-    innerPadding: PaddingValues
+    innerPadding: PaddingValues,
+    onSignOut: () -> Unit = {}
 ) {
-    // Activity-scoped so both HomeContent and ProductDetailScreen share the same instance.
     val activity = LocalActivity.current as ComponentActivity
-    val selectedProductVM: SelectedProductViewModel = viewModel(
-        viewModelStoreOwner = activity
-    )
+    val selectedProductVM: SelectedProductViewModel = viewModel(viewModelStoreOwner = activity)
 
     NavHost(
         navController = navController,
@@ -76,25 +74,29 @@ fun BottomNavGraph(
 
         composable(BottomRoutes.Profile) {
             ProfileScreen(
-                logOut = {},
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onSignOut = onSignOut
             )
         }
 
         composable(BottomRoutes.Categories) {
-            CategoryScreen(onCategoryClick = { cat ->
-                val filter = when (cat.name) {
-                    "Vegetable"     -> "Vegetables"
-                    "Fruits"        -> "Fruits"
-                    "Breads"        -> "Breads"
-                    "Dairy & Sweet" -> "Dairy"
-                    "Snacks"        -> "Snacks"
-                    "Bakery"        -> "Bakery"
-                    "Chicken"       -> "Chicken"
-                    else            -> "All"
-                }
-                navController.navigate("${AppRoutes.SearchProduct}?category=$filter")
-            })
+            CategoryScreen(
+                onCategoryClick = { cat ->
+                    val filter = when (cat.name) {
+                        "Vegetable"     -> "Vegetables"
+                        "Fruits"        -> "Fruits"
+                        "Breads"        -> "Breads"
+                        "Dairy & Sweet" -> "Dairy"
+                        "Snacks"        -> "Snacks"
+                        "Bakery"        -> "Bakery"
+                        "Chicken"       -> "Chicken"
+                        else            -> "All"
+                    }
+                    navController.navigate("${AppRoutes.SearchProduct}?category=$filter")
+                },
+                onCheckout = { navController.navigate(AppRoutes.Checkout) },
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(BottomRoutes.Wishlist) {
@@ -104,12 +106,16 @@ fun BottomNavGraph(
                     selectedProductVM.select(product)
                     navController.navigate(AppRoutes.ProductDetail)
                 },
-                onCheckout = { navController.navigate(AppRoutes.Checkout) }
+                onCheckout = { navController.navigate(AppRoutes.Checkout) },
+                onBack = { navController.popBackStack() }
             )
         }
 
         composable(BottomRoutes.Delivery) {
-            DeliveryScreen(bottomPadding = innerPadding.calculateBottomPadding())
+            DeliveryScreen(
+                bottomPadding = innerPadding.calculateBottomPadding(),
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(AppRoutes.Checkout) {
@@ -126,7 +132,8 @@ fun BottomNavGraph(
         composable(AppRoutes.ProductDetail) {
             ProductDetailScreen(
                 selectedProductViewModel = selectedProductVM,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onCheckout = { navController.navigate(AppRoutes.Checkout) }
             )
         }
 
@@ -141,7 +148,9 @@ fun BottomNavGraph(
             SearchProductScreen(
                 selectedProductViewModel = selectedProductVM,
                 initialCategory = category,
-                onSelect = { navController.navigate(AppRoutes.ProductDetail) }
+                onSelect = { navController.navigate(AppRoutes.ProductDetail) },
+                onCheckout = { navController.navigate(AppRoutes.Checkout) },
+                onBack = { navController.popBackStack() }
             )
         }
     }

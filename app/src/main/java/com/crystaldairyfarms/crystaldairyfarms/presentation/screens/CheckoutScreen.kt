@@ -17,9 +17,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -75,6 +78,9 @@ fun CheckoutScreen(
     val orderState by checkoutViewModel.orderState.collectAsState()
     val addresses by addressViewModel.addresses.collectAsState()
     val defaultAddress = addresses.find { it.isDefault } ?: addresses.firstOrNull()
+
+    val hasAddress = defaultAddress != null
+    val hasPhone = defaultAddress?.phone?.isNotBlank() == true
 
     var selectedPayment by remember { mutableStateOf<PaymentOption?>(null) }
     var showUpiConfirmDialog by remember { mutableStateOf(false) }
@@ -159,7 +165,8 @@ fun CheckoutScreen(
                                 .onFailure { showUpiConfirmDialog = true }
                         }
                     },
-                    enabled = selectedPayment != null && cartState.items.isNotEmpty() && orderState !is OrderState.Loading,
+                    enabled = selectedPayment != null && cartState.items.isNotEmpty() &&
+                        hasAddress && hasPhone && orderState !is OrderState.Loading,
                     modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Primary)
@@ -193,15 +200,71 @@ fun CheckoutScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Text(item.emoji, fontSize = 20.sp)
+                                // Emoji + name
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(item.emoji, fontSize = 22.sp)
                                     Spacer(Modifier.width(8.dp))
                                     Column {
-                                        Text(item.name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                        Text("Qty: ${item.quantity}", fontSize = 12.sp, color = Color.Gray)
+                                        Text(item.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                                        Text("$${"%.2f".format(item.price)} each", fontSize = 11.sp, color = Color.Gray)
                                     }
                                 }
-                                Text("$${"%.2f".format(item.price * item.quantity)}", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                // Quantity controls + price
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    // Minus or Delete
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (item.quantity == 1) Color(0xFFFFEBEB)
+                                                else Color(0xFFE8F5E9)
+                                            )
+                                            .clickable {
+                                                if (item.quantity == 1) cartViewModel.deleteItem(item.id)
+                                                else cartViewModel.removeItem(item.id)
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (item.quantity == 1) Icons.Default.Delete else Icons.Default.Remove,
+                                            contentDescription = if (item.quantity == 1) "Delete" else "Decrease",
+                                            tint = if (item.quantity == 1) Color(0xFFD32F2F) else Primary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "${item.quantity}",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.width(20.dp),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    // Plus
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(Primary)
+                                            .clickable { cartViewModel.addItem(item) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = "Increase", tint = Color.White, modifier = Modifier.size(14.dp))
+                                    }
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        "$${"%.2f".format(item.price * item.quantity)}",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp,
+                                        color = Primary
+                                    )
+                                }
                             }
                         }
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -216,16 +279,31 @@ fun CheckoutScreen(
             item {
                 CheckoutSection(title = "Delivery Address") {
                     if (defaultAddress != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.Top) {
                             Icon(Icons.Default.LocationOn, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
                             Column {
                                 Text(defaultAddress.displayText, fontSize = 13.sp, color = Color(0xFF444444))
+                                if (defaultAddress.phone.isNotBlank()) {
+                                    Text("📞 ${defaultAddress.phone}", fontSize = 12.sp, color = Color.Gray)
+                                }
                                 Text("Default address", fontSize = 11.sp, color = Primary)
                             }
                         }
+                        if (!hasPhone) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "⚠️ No contact phone on this address. Edit it in Profile to place orders.",
+                                fontSize = 12.sp,
+                                color = Color(0xFFB45309)
+                            )
+                        }
                     } else {
-                        Text("No address saved. Add one in Profile.", fontSize = 13.sp, color = Color.Gray)
+                        Text(
+                            "⚠️ No address saved. Add one in Profile to place orders.",
+                            fontSize = 13.sp,
+                            color = Color(0xFFB45309)
+                        )
                     }
                 }
             }

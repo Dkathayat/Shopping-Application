@@ -117,4 +117,8 @@ dependencies {
 
     // Animation
     implementation(libs.androidx.compose.animation)
+
+    // Location
+    implementation(libs.play.services.location)
+    implementation(libs.kotlinx.coroutines.play.services)
 }

@@ -4,7 +4,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.crystaldairyfarms.crystaldairyfarms.presentation.appnav.BottomNavGraph
@@ -13,7 +12,7 @@ import com.crystaldairyfarms.crystaldairyfarms.ui.theme.BackgroundCream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onSignOut: () -> Unit = {}) {
     val bottomNavController = rememberNavController()
     val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -21,16 +20,15 @@ fun HomeScreen() {
         || currentRoute == "Profile"
         || currentRoute == "Checkout"
         || currentRoute?.startsWith("SearchProduct") == true
+
     Scaffold(
         bottomBar = { if (!hideBottomBar) { CategoryBottomNav(bottomNavController) } },
         containerColor = BackgroundCream,
     ) { padding ->
-        BottomNavGraph(bottomNavController, innerPadding = padding)
+        BottomNavGraph(
+            navController = bottomNavController,
+            innerPadding = padding,
+            onSignOut = onSignOut
+        )
     }
-}
-
-@Preview(showSystemUi = true)
-@Composable
-private fun Preview() {
-    HomeScreen()
 }

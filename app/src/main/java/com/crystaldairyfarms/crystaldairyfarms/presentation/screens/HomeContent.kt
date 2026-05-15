@@ -106,12 +106,34 @@ fun HomeContent(
     onDeliverySlotClick: (String) -> Unit = {},
     onCheckout: () -> Unit = {},
     cartViewModel: CartViewModel = hiltViewModel(),
-    productViewModel: ProductViewModel = hiltViewModel()
+    productViewModel: ProductViewModel = hiltViewModel(),
+    locationViewModel: com.crystaldairyfarms.crystaldairyfarms.presentation.vm.LocationViewModel = hiltViewModel()
 ) {
     val cartState by cartViewModel.uiState.collectAsState()
     val productState by productViewModel.state.collectAsState()
+    val locationText by locationViewModel.locationText.collectAsState()
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+
+    // Request location permission and fetch on grant
+    val locationPermLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        ) {
+            locationViewModel.fetchLocation()
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        locationPermLauncher.launch(
+            arrayOf(
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+        locationViewModel.fetchLocation()
+    }
 
     // Set white status bar icons so they're visible on the dark Primary background.
     // Restored when leaving this screen.
@@ -143,6 +165,7 @@ fun HomeContent(
             ) {
                 HomeTopBar(
                     cartItem = cartState.totalItems,
+                    locationText = locationText,
                     onDrawerClicked = { onDrawerClicked.invoke() },
                     onCartClick = { cartViewModel.showCart() }
                 )
@@ -464,6 +487,7 @@ fun FirebaseProductCard(
 @Composable
 fun HomeTopBar(
     cartItem: Int,
+    locationText: String = "Locating...",
     onDrawerClicked: () -> Unit,
     onCartClick: () -> Unit
 ) {
@@ -496,7 +520,7 @@ fun HomeTopBar(
                 )
                 Spacer(Modifier.width(2.dp))
                 Text(
-                    "New Delhi, IND",
+                    text = locationText,
                     color = Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
@@ -642,6 +666,19 @@ fun DeliverySlotCard(slot: DeliverySlot, modifier: Modifier = Modifier, onSlotCl
     }
 }
 
+private data class StoreData(
+    val name: String,
+    val category: String,
+    val deliveryTime: String,
+    val rating: String,
+    val imageRes: Int
+)
+
+private val featuredStores = listOf(
+    StoreData("T&T Food Market", "Organic • Fresh", "5 min", "4.8", com.crystaldairyfarms.crystaldairyfarms.R.drawable.food_store_organic),
+    StoreData("D&D Food Market", "Dairy • Bakery", "15 min", "4.5", com.crystaldairyfarms.crystaldairyfarms.R.drawable.food_store)
+)
+
 @Composable
 fun FeaturedHeader(onStoreClick: () -> Unit) {
     Row(
@@ -652,67 +689,114 @@ fun FeaturedHeader(onStoreClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text("Featured Stores", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text(
+            text = "See all",
+            fontSize = 13.sp,
+            color = Primary,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clickable { onStoreClick() }
+        )
     }
+    Spacer(Modifier.height(12.dp))
     FeaturedStore()
 }
 
 @Composable
 fun FeaturedStore() {
     LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(15.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        item {
-            Card(
+        items(featuredStores, key = { it.name }) { store ->
+            StoreCard(store)
+        }
+    }
+}
+
+@Composable
+private fun StoreCard(store: StoreData) {
+    Card(
+        modifier = Modifier
+            .width(220.dp)
+            .shadow(6.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardWhite)
+    ) {
+        Column {
+            Box(
                 modifier = Modifier
-                    .padding(10.dp)
-                    .shadow(4.dp, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardWhite)
+                    .fillMaxWidth()
+                    .height(130.dp)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.SpaceBetween
+                Image(
+                    painter = painterResource(store.imageRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                )
+                androidx.compose.material3.Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF1B3F32).copy(alpha = 0.85f)
                 ) {
-                    Image(
-                        painter = painterResource(com.crystaldairyfarms.crystaldairyfarms.R.drawable.food_store_organic),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .width(250.dp)
-                            .height(150.dp)
-                            .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                    Text(
+                        text = "⭐ ${store.rating}",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                     )
-                    Text(modifier = Modifier.padding(all = 5.dp), text = "T&T Food Market", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-                    Text(modifier = Modifier.padding(start = 5.dp, bottom = 5.dp), text = "Deliver in 5 min ⚡ ", fontWeight = FontWeight.Medium, color = Color.Gray)
                 }
             }
-        }
-        item {
-            Card(
-                modifier = Modifier
-                    .padding(10.dp)
-                    .shadow(4.dp, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CardWhite)
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.SpaceBetween
+                Text(
+                    text = store.name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = store.category,
+                    fontSize = 11.sp,
+                    color = TextMuted
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Image(
-                        painter = painterResource(com.crystaldairyfarms.crystaldairyfarms.R.drawable.food_store),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .width(250.dp)
-                            .height(150.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                    )
-                    Text(modifier = Modifier.padding(all = 5.dp), text = "D&D Food Market", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-                    Text(modifier = Modifier.padding(start = 5.dp, bottom = 5.dp), text = "Deliver in 15 min ⚡ ", fontWeight = FontWeight.Medium, fontSize = 12.sp, color = Color.Gray)
+                    androidx.compose.material3.Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Primary.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = "⚡ ${store.deliveryTime}",
+                            color = Primary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    androidx.compose.material3.Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFF0F0F0)
+                    ) {
+                        Text(
+                            text = "Free delivery",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
         }

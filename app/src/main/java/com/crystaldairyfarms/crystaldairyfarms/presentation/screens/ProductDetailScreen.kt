@@ -54,6 +54,7 @@ private val VariantColors  = listOf(Color(0xFF8B2B2B), Color(0xFFD97706), Color(
 fun ProductDetailScreen(
     selectedProductViewModel: SelectedProductViewModel,
     onBack: () -> Unit = {},
+    onCheckout: () -> Unit = {},
     cartViewModel: CartViewModel = hiltViewModel()
 ) {
     val selectedProduct by selectedProductViewModel.product.collectAsState()
@@ -278,7 +279,7 @@ fun ProductDetailScreen(
                 onRemoveOne = { cartViewModel.removeItem(it) },
                 onAddOne = { cartViewModel.addItem(it) },
                 onDelete = { cartViewModel.deleteItem(it) },
-                onCheckout = { cartViewModel.hideCart() }
+                onCheckout = { cartViewModel.hideCart(); onCheckout() }
             )
         }
     }
